@@ -1,4 +1,5 @@
 import pyparsing as pp
+from rfc3987 import get_compiled_pattern
 
 quoted_string = pp.QuotedString('"', unquoteResults=False, escChar='\\')
 unqoted_quote_string = pp.QuotedString('"', escChar='\\')
@@ -50,3 +51,20 @@ def id_only_tag(tag_name: str) -> pp.ParserElement:
 
 def basic_tag_value_pair(tag_name: str) -> pp.ParserElement:
     return pp.Group(pp.Keyword(tag_name) + COLON + obo_unquoted + EOL)(tag_name)
+
+
+stanza_type = (pp.Keyword('Term') | pp.Keyword('Typedef') | pp.Keyword('Instance'))
+stanza_name = (pp.LineStart() + OPEN_BRACKET + stanza_type + CLOSE_BRACKET)('stanza_name')
+tag = pp.Regex(r'[^:\n]+')('tag')
+value = pp.OneOrMore(
+    pp.Word(pp.printables, excludeChars='{!"') | quoted_string, stopOn=pp.LineEnd()).setParseAction(
+    ' '.join)('value')
+xsd_type = pp.Combine('xsd:' + pp.Word(pp.alphas))('xsd-type')
+dbxref_name = (pp.Regex(r'(?:[^],\"\\\n]|\\.)+') +
+               pp.Optional(unqoted_quote_string))
+dbxref = pp.Group(
+    OPEN_BRACKET + (pp.delimitedList(dbxref_name, ',') | pp.Empty()) + CLOSE_BRACKET
+)('dbxref')
+tag_value_pair = pp.Group(tag + COLON + value + EOL)
+file_path = pp.Regex(r'[^\0\n]+')
+iri = pp.Regex(get_compiled_pattern('%(IRI)s'))

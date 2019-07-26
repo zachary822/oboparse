@@ -6,29 +6,11 @@ https://owlcollab.github.io/oboformat/doc/GO.format.obo-1_4.html
 """
 import pyparsing as pp
 
-from .utils import CLOSE_BRACKET, COLON, EOL, OPEN_BRACKET, SYNONYM_SCOPE, _id_value, basic_tag_value_pair, \
-    boolean_tag, comment, id_only_tag, obo_unquoted, quoted_string, synonym_type_id, unqoted_quote_string
+from .utils import BOOLEAN, CLOSE_BRACKET, COLON, EOL, OPEN_BRACKET, SYNONYM_SCOPE, _id_value, basic_tag_value_pair, \
+    boolean_tag, comment, dbxref, file_path, id_only_tag, iri, obo_unquoted, quoted_string, stanza_name, \
+    synonym_type_id, tag, tag_value_pair, unqoted_quote_string, xsd_type
 
 __all__ = ['obo_parser']
-
-stanza_type = (pp.Keyword('Term') | pp.Keyword('Typedef') | pp.Keyword('Instance'))
-stanza_name = (pp.LineStart() + OPEN_BRACKET + stanza_type + CLOSE_BRACKET)('stanza_name')
-
-tag = pp.Word(pp.alphas + '_-.')('tag')
-
-value = pp.OneOrMore(
-    pp.Word(pp.printables, excludeChars='{!"') | quoted_string, stopOn=pp.LineEnd()).setParseAction(
-    ' '.join)('value')
-
-dbxref_name = (pp.Regex(r'(?:[^],\"\\\n]|\\.)+') +
-               pp.Optional(unqoted_quote_string))
-dbxref = pp.Group(
-    OPEN_BRACKET + (pp.delimitedList(dbxref_name, ',') | pp.Empty()) + CLOSE_BRACKET
-)('dbxref')
-
-tag_value_pair = pp.Group(tag + COLON + value + EOL)
-
-iri = pp.Word(pp.printables + ' ')
 
 # header tags
 format_version_tag = pp.Group(pp.Keyword('format-version') + COLON + obo_unquoted)('format-version')
@@ -39,13 +21,19 @@ date_tag = pp.Group(pp.Keyword('date') + COLON + pp.Regex(r'\d{2}:\d{2}:\d{4}\s+
 
 auto_generated_by_tag = pp.Group(pp.Keyword('auto-generated-by') + COLON + obo_unquoted)('auto-generated-by')
 
-import_tag = pp.Group(pp.Keyword('import') + COLON + iri)('import')
+import_tag = pp.Group(pp.Keyword('import') + COLON + (iri | file_path))('import')
 
 subsetdef_tag = pp.Group(pp.Keyword('subsetdef') + COLON + _id_value + unqoted_quote_string)('subsetdef')
 
 synonymtypedef_tag = pp.Group(
     pp.Keyword('synonymtypedef') + COLON + _id_value + unqoted_quote_string + pp.Optional(SYNONYM_SCOPE)
 )('synonymtypedef')
+
+ontology_tag = pp.Group(pp.Keyword('ontology') + COLON + obo_unquoted)('ontology')
+
+property_value_header_tag = pp.Group(
+    pp.Keyword('property_value') + COLON + _id_value + ((unqoted_quote_string + xsd_type) | _id_value)
+)('property_value')
 
 # stanza tags
 is_anonymous = boolean_tag('is_anonymous')
@@ -78,8 +66,6 @@ xref_tag = pp.Group(
 )('xref')
 
 builtin_tag = boolean_tag('builtin')
-
-xsd_type = pp.Combine('xsd:' + pp.Word(pp.printables, excludeChars='!{'))('xsd-type')
 
 property_value_tag = pp.Group(
     pp.Keyword('property_value') + COLON + _id_value + ((unqoted_quote_string + xsd_type) | _id_value) + EOL
@@ -138,6 +124,7 @@ stanza = pp.Group(
             consider_tag |
             created_by_tag |
             creation_date_tag |
+            pp.Group(tag + COLON + BOOLEAN + EOL) |
             pp.Group(tag + COLON + obo_unquoted + EOL) |
             tag_value_pair
         )
@@ -151,6 +138,8 @@ headers = pp.OneOrMore(
     import_tag |
     subsetdef_tag |
     synonymtypedef_tag |
+    ontology_tag |
+    property_value_header_tag |
     pp.Group(tag + COLON + obo_unquoted) |
     tag_value_pair
 )
@@ -160,4 +149,4 @@ stanzas = pp.OneOrMore(
     comment
 )
 
-obo_parser = pp.Group(headers)('headers') + pp.Group(stanzas)('stanzas')
+obo_parser: pp.ParserElement = pp.Group(headers)('headers') + pp.Group(stanzas)('stanzas')
