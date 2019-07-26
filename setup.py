@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='oboparse',
-    version='0.0.2',
+    version='0.0.3',
     description='OBO file parser',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -26,7 +26,8 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'pyparsing',
-        'rfc3987'
+        'rfc3987',
+        'networkx'
     ],
     package_data={
         '': ['LICENSE']
